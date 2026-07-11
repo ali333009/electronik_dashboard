@@ -48,7 +48,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body { height: 100%; margin: 0; padding: 0; overflow-x: hidden; }
+html, body { height: 100%; margin: 0; padding: 0; }
 body {
   font-family: "Cairo","Segoe UI",Tahoma,sans-serif;
   background-color: var(--bg-body);
@@ -90,7 +90,7 @@ a:hover { color: var(--color-accent-dark); }
   position: fixed; top: 0; right: 0; bottom: 0;
   z-index: 1030;
   display: flex; flex-direction: column;
-  transition: right var(--transition), box-shadow var(--transition);
+  transition: right var(--transition), transform var(--transition), box-shadow var(--transition);
   overflow-y: auto;
 }
 .sidebar-header {
@@ -979,9 +979,6 @@ table.table {
 
 /* ===== Responsive ===== */
 @media (max-width: 991.98px) {
-  /* Hide the sidebar completely off-canvas on small screens.
-     Use right offset and overflow-x:hidden to prevent any black
-     bar or rendering artifact from appearing. */
   .sidebar { right: calc(-1 * var(--sidebar-width)); box-shadow: none; }
   .sidebar.show { right: 0; box-shadow: -8px 0 32px rgba(0,0,0,0.2); }
   .main-wrapper { margin-right: 0; }
