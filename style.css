@@ -978,19 +978,87 @@ table.table {
 .pagination-empty-msg { font-size: 0.78rem; color: var(--text-muted); }
 
 /* ===== Responsive ===== */
+html, body { overflow-x: hidden; }
+
+/* منع تمرير الصفحة لما السايدبار مفتوح */
+body.sidebar-open { overflow: hidden; }
+
 @media (max-width: 991.98px) {
-  .sidebar { transform: translateX(100%); box-shadow: none; }
-  .sidebar.show { transform: translateX(0); box-shadow: -8px 0 32px rgba(0,0,0,0.2); }
+  .sidebar {
+    transform: translateX(110%);
+    box-shadow: none;
+    transition: transform var(--transition), box-shadow var(--transition);
+  }
+  .sidebar.show {
+    transform: translateX(0);
+    box-shadow: -12px 0 40px rgba(0,0,0,0.3);
+  }
   .main-wrapper { margin-right: 0; }
   .top-navbar .navbar-search { display: none; }
 }
-html, body { overflow-x: hidden; }
-@media (max-width: 575.98px) {
-  .main-content { padding: 1rem; }
-  .page-header h1, .page-header h2 { font-size: 1.3rem; }
-  .stat-card .stat-value { font-size: 1.55rem; }
-  .top-navbar { padding: 0 1rem; }
+
+/* ===== شاشات صغيرة (موبايل) ===== */
+@media (max-width: 767.98px) {
+  .main-content { padding: 0.85rem; }
+  .page-header { gap: 0.75rem; margin-bottom: 1rem; }
+  .page-header h1, .page-header h2 { font-size: 1.25rem; }
+  .page-actions .btn span { display: none; }
+  .page-actions .btn { padding: 0.5rem 0.65rem; }
+  .page-actions .btn i { margin: 0 !important; }
+
+  /* Filter bar */
+  .filter-bar { gap: 0.5rem; }
+  .filter-bar .form-select { flex: 1; min-width: 0; font-size: 0.82rem; }
+  .filter-bar .search-box { min-width: 100%; }
+
+  /* جدول المنتجات — إخفاء الأعمدة غير الضرورية */
+  #p-table table thead tr th:nth-child(1),
+  #p-table table tbody tr td:nth-child(1) { display: none; }  /* Checkbox */
+  #p-table table thead tr th:nth-child(4),
+  #p-table table tbody tr td:nth-child(4) { display: none; }  /* الفئة */
+  #p-table table thead tr th:nth-child(7),
+  #p-table table tbody tr td:nth-child(7) { display: none; }  /* التقييم */
+  #p-table table thead tr th:nth-child(8),
+  #p-table table tbody tr td:nth-child(8) { display: none; }  /* العلامات */
+  #p-table table thead tr th:nth-child(9),
+  #p-table table tbody tr td:nth-child(9) { display: none; }  /* تاريخ الإضافة */
+
+  /* جدول الطلبات — الـ Dashboard */
+  .card .table thead tr th:nth-child(3),
+  .card .table tbody tr td:nth-child(3) { display: none; }  /* التاريخ */
+
+  /* جعل اسم المنتج يأخذ مساحة معقولة */
+  #p-table table tbody td:nth-child(3) { max-width: 130px; }
+  #p-table table tbody td:nth-child(3) > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+
+  /* أزرار الإجراءات */
+  .btn-icon { width: 32px; height: 32px; font-size: 0.85rem; }
+
+  /* Toast صغيرة */
+  .toast { min-width: 280px; }
+
+  /* إخفاء بعض أعمدة جداول أخرى */
+  .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+  .stat-card { padding: 1rem; }
+  .stat-card .stat-value { font-size: 1.5rem; }
+  .stat-card .stat-icon { width: 40px; height: 40px; font-size: 1.1rem; }
+}
+
+/* ===== شاشات صغيرة جداً (< 480px) ===== */
+@media (max-width: 479.98px) {
+  .main-content { padding: 0.65rem; }
+  .top-navbar { padding: 0 0.75rem; }
   .top-navbar .nav-user .user-meta { display: none; }
+  .stat-grid { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .stat-card .stat-value { font-size: 1.3rem; }
+
+  /* إخفاء عمود المخزون في جدول المنتجات على الشاشات الصغيرة جداً */
+  #p-table table thead tr th:nth-child(6),
+  #p-table table tbody tr td:nth-child(6) { display: none; }
+
+  /* أزرار الصفحة تبقى مرئية بدون نص */
+  .page-actions { gap: 0.35rem; }
+  .filter-bar .form-select { font-size: 0.78rem; padding: 0.4rem 0.5rem; }
 }
 
 /* ===== Animations ===== */

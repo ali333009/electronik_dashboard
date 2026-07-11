@@ -982,8 +982,16 @@ function highlightActiveNav(route) {
 }
 
 /** فتح/إغلاق الـ Sidebar (موبايل) */
-function openSidebar() { $('#sidebar').classList.add('show'); $('#sidebar-overlay').classList.add('show'); }
-function closeSidebar() { $('#sidebar').classList.remove('show'); $('#sidebar-overlay').classList.remove('show'); }
+function openSidebar() {
+  $('#sidebar').classList.add('show');
+  $('#sidebar-overlay').classList.add('show');
+  document.body.classList.add('sidebar-open');
+}
+function closeSidebar() {
+  $('#sidebar').classList.remove('show');
+  $('#sidebar-overlay').classList.remove('show');
+  document.body.classList.remove('sidebar-open');
+}
 
 /* =========================================================
    7) الـ Navbar + البحث السريع
