@@ -867,6 +867,7 @@ function registerRoute(name, render) { ROUTES[name] = render; }
 /** التنقل بين الصفحات */
 function navigate(route) {
   if (!ROUTES[route]) route = 'dashboard';
+  if (window.innerWidth < 992) closeSidebar();
   currentRoute = route;
   if (window.location.hash !== `#/${route}`) window.location.hash = `#/${route}`;
   highlightActiveNav(route);

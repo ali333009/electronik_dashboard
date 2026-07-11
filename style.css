@@ -979,8 +979,12 @@ table.table {
 
 /* ===== Responsive ===== */
 @media (max-width: 991.98px) {
-  .sidebar { transform: translateX(100%); box-shadow: none; }
-  .sidebar.show { transform: translateX(0); box-shadow: -8px 0 32px rgba(0,0,0,0.2); }
+  /* Use logical right offset on small screens instead of translateX(%).
+     Some mobile browsers calculate percentage transforms differently
+     which can create partial/centered overlay artifacts. Setting a
+     negative `right` reliably moves the sidebar off-canvas. */
+  .sidebar { transform: none; right: -var(--sidebar-width); box-shadow: none; }
+  .sidebar.show { right: 0; transform: none; box-shadow: -8px 0 32px rgba(0,0,0,0.2); }
   .main-wrapper { margin-right: 0; }
   .top-navbar .navbar-search { display: none; }
 }
