@@ -989,7 +989,7 @@ body.sidebar-open { overflow: hidden; }
 @media (max-width: 991.98px) {
   /* إخفاء السايدبار: تحريكه خارج الشاشة من اليمين */
   .sidebar {
-    right: calc(-1 * var(--sidebar-width) - 50px);
+    right: -320px;
     box-shadow: none;
   }
   /* عرض السايدبار لما يفتح */
