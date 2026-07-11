@@ -984,6 +984,7 @@ table.table {
   .main-wrapper { margin-right: 0; }
   .top-navbar .navbar-search { display: none; }
 }
+html, body { overflow-x: hidden; }
 @media (max-width: 575.98px) {
   .main-content { padding: 1rem; }
   .page-header h1, .page-header h2 { font-size: 1.3rem; }
