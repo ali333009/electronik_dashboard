@@ -1006,7 +1006,7 @@ body.sidebar-open { overflow: hidden; }
   /* --- Navbar --- */
   .top-navbar { height: 56px; padding: 0 1rem; gap: 0.6rem; }
   .page-title { font-size: 0.95rem; }
-  .page-subtitle { display: none; }
+  .page-subtitle { font-size: 0.7rem; }
   .navbar-actions { gap: 0.35rem; }
   .nav-icon-btn { width: 36px; height: 36px; font-size: 1rem; }
   .nav-user { padding: 0.25rem 0.4rem 0.25rem 0.6rem; gap: 0.35rem; }
@@ -1018,9 +1018,6 @@ body.sidebar-open { overflow: hidden; }
   .page-header { gap: 0.6rem; margin-bottom: 0.85rem; flex-direction: column; align-items: flex-start; }
   .page-header h1, .page-header h2 { font-size: 1.15rem; }
   .page-actions { width: 100%; }
-  .page-actions .btn span { display: none; }
-  .page-actions .btn { padding: 0.5rem 0.65rem; }
-  .page-actions .btn i { margin: 0 !important; }
 
   /* --- Stat cards --- */
   .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 0.65rem; margin-bottom: 1rem; }
@@ -1048,55 +1045,29 @@ body.sidebar-open { overflow: hidden; }
   .toast { min-width: 260px; max-width: calc(100vw - 2rem); }
 
   /* ============================================================
-     جداول — إخفاء أعمدة غير الضرورية على الموبايل
+     جداول — لا نُخفي أي عمود، الجدول يمرر أفقيًا بسلاسة
      ============================================================ */
+  .table-responsive { border-radius: var(--radius-md); }
+  .table { min-width: 700px; }
+  .table tbody td,
+  .table thead th { white-space: nowrap; }
 
-  /* --- جدول المنتجات (#p-table) --- */
-  #p-table table thead tr th:nth-child(1),
-  #p-table table tbody tr td:nth-child(1) { display: none; }  /* Checkbox */
-  #p-table table thead tr th:nth-child(4),
-  #p-table table tbody tr td:nth-child(4) { display: none; }  /* الفئة */
-  #p-table table thead tr th:nth-child(7),
-  #p-table table tbody tr td:nth-child(7) { display: none; }  /* التقييم */
-  #p-table table thead tr th:nth-child(8),
-  #p-table table tbody tr td:nth-child(8) { display: none; }  /* العلامات */
-  #p-table table thead tr th:nth-child(9),
-  #p-table table tbody tr td:nth-child(9) { display: none; }  /* تاريخ الإضافة */
-  #p-table table tbody td:nth-child(3) { max-width: 110px; }
-  #p-table table tbody td:nth-child(3) > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
-
-  /* --- جدول الطلبات (#o-table) --- */
-  #o-table table thead tr th:nth-child(3),
-  #o-table table tbody tr td:nth-child(3) { display: none; }  /* عدد المنتجات */
-  #o-table table thead tr th:nth-child(5),
-  #o-table table tbody tr td:nth-child(5) { display: none; }  /* التاريخ */
-  #o-table table thead tr th:nth-child(6),
-  #o-table table tbody tr td:nth-child(6) { display: none; }  /* الدفع */
-
-  /* --- جدول الطلبات في الـ Dashboard card --- */
-  .card .table thead tr th:nth-child(3),
-  .card .table tbody tr td:nth-child(3) { display: none; }  /* التاريخ */
-
-  /* --- جدول العملاء (#cu-table) --- */
-  #cu-table table thead tr th:nth-child(2),
-  #cu-table table tbody tr td:nth-child(2) { display: none; }  /* البريد الإلكتروني */
-  #cu-table table thead tr th:nth-child(3),
-  #cu-table table tbody tr td:nth-child(3) { display: none; }  /* الهاتف */
-  #cu-table table thead tr th:nth-child(6),
-  #cu-table table tbody tr td:nth-child(6) { display: none; }  /* تاريخ التسجيل */
-
-  /* --- جدول البانرات (#b-list) --- */
-  #b-list table thead tr th:nth-child(1),
-  #b-list table tbody tr td:nth-child(1) { display: none; }  /* الصورة */
-  #b-list table thead tr th:nth-child(5),
-  #b-list table tbody tr td:nth-child(5) { display: none; }  /* الترتيب */
-
-  /* --- جدول الكوبونات (#co-table) --- */
-  #co-table table thead tr th:nth-child(4),
-  #co-table table tbody tr td:nth-child(4) { display: none; }  /* تاريخ الإنشاء */
-
-  /* --- جدول الفئات (Category grid) --- */
-  #cat-grid > [class*="col-"] { flex: 0 0 50%; max-width: 50%; }
+  /* تلميح مرئي إن الجدول يتمرر */
+  .table-responsive { position: relative; }
+  .table-responsive::after {
+    content: '\2190  اسحب لليمين \2192';
+    display: none;
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(90deg, var(--bg-surface) 30%, transparent);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    text-align: center;
+    padding: 4px 0 6px;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .table-responsive.has-overflow::after { display: block; }
 
   /* --- فواتير الطلب --- */
   .invoice-product { min-width: 140px; }
@@ -1135,7 +1106,6 @@ body.sidebar-open { overflow: hidden; }
 @media (max-width: 479.98px) {
   /* --- Navbar --- */
   .top-navbar { padding: 0 0.6rem; height: 50px; }
-  .top-navbar .nav-user .user-meta { display: none; }
   .nav-icon-btn { width: 32px; height: 32px; font-size: 0.9rem; }
 
   /* --- Main --- */
@@ -1148,23 +1118,10 @@ body.sidebar-open { overflow: hidden; }
   .stat-card .stat-value { font-size: 1.15rem; }
   .stat-card .stat-label { font-size: 0.62rem; }
 
-  /* --- إخفاء أعمدة إضافية --- */
-  #p-table table thead tr th:nth-child(6),
-  #p-table table tbody tr td:nth-child(6) { display: none; }  /* المخزون */
-  #o-table table thead tr th:nth-child(4),
-  #o-table table tbody tr td:nth-child(4) { display: none; }  /* الإجمالي */
-  #cu-table table thead tr th:nth-child(4),
-  #cu-table table tbody tr td:nth-child(4) { display: none; }  /* عدد الطلبات */
-  #cu-table table thead tr th:nth-child(5),
-  #cu-table table tbody tr td:nth-child(5) { display: none; }  /* إجمالي المشتريات */
-
   /* --- أزرار الصفحة --- */
   .page-actions { gap: 0.35rem; }
   .page-actions .btn { padding: 0.4rem 0.55rem; }
   .filter-bar .form-select { font-size: 0.78rem; padding: 0.4rem 0.5rem; }
-
-  /* --- Category grid — عمود واحد على الشاشات الصغيرة جداً --- */
-  #cat-grid > [class*="col-"] { flex: 0 0 100%; max-width: 100%; }
 
   /* --- مودالات --- */
   .modal-dialog { margin: 0.25rem; }

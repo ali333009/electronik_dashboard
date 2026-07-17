@@ -880,6 +880,7 @@ function navigate(route) {
     main.classList.remove('view-enter');
     void main.offsetWidth;
     main.classList.add('view-enter');
+    setupTableScrollHints();
   } catch (e) {
     console.error('[Router] خطأ:', e);
     main.innerHTML = `<div class="empty-state"><i class="bi bi-exclamation-triangle text-danger"></i><h5>خطأ في التحميل</h5><p>${esc(e.message)}</p></div>`;
@@ -4615,6 +4616,21 @@ function registerAllRoutes() {
   registerRoute('reviews', renderReviews);
   registerRoute('notifications', renderNotifications);
   registerRoute('settings', renderSettings);
+}
+
+/** تلميح مرئي للجداول القابلة للتمرر على الموبايل */
+function setupTableScrollHints() {
+  function checkOverflow() {
+    if (window.innerWidth > 768) return;
+    $$('.table-responsive').forEach(el => {
+      el.classList.toggle('has-overflow', el.scrollWidth > el.clientWidth + 5);
+    });
+  }
+  checkOverflow();
+  window.removeEventListener('resize', checkOverflow);
+  window.addEventListener('resize', checkOverflow);
+  const observer = new MutationObserver(checkOverflow);
+  observer.observe(document.body, { childList: true, subtree: true });
 }
 
 function initApp() {
