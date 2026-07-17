@@ -2115,7 +2115,11 @@ function openProductModal(product = null, opts = {}) {
         const k = tr.querySelector('.opt-key').value.trim();
         const v = tr.querySelector('.opt-val').value;
         if (k && v) {
-          options[k] = v.split(',').map(s => s.trim()).filter(Boolean);
+          if (tr.dataset.optionType === 'color') {
+            try { options[k] = JSON.parse(v); } catch(e) { options[k] = []; }
+          } else {
+            options[k] = v.split(',').map(s => s.trim()).filter(Boolean);
+          }
         }
       });
       const payload = {
@@ -2196,71 +2200,210 @@ function openProductModal(product = null, opts = {}) {
       }
       addBtn.addEventListener('click', () => addSpecRow());
 
-      function addOptionRow(key = '', val = '') {
+      function addOptionRow(key = '', val = '', colorData = null) {
         const tbodyOpts = modalEl.querySelector('#options-tbody');
         if (!tbodyOpts) return;
+        const isColor = colorData !== null || key === 'اللون';
         const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td><input type="text" class="form-control form-control-sm opt-key" value="${esc(key)}" placeholder="اسم الخيار (مثل: اللون)"></td>
-          <td>
-            <div class="tags-input-wrapper">
-              <div class="tags-list d-flex flex-wrap gap-1 mb-1"></div>
-              <div class="input-group input-group-sm">
-                <input type="text" class="form-control opt-tag-input" placeholder="اكتب القيمة ثم اضغط Enter أو +">
-                <button class="btn btn-outline-primary btn-add-tag" type="button" title="إضافة قيمة"><i class="bi bi-plus-lg"></i></button>
+        tr.dataset.optionType = isColor ? 'color' : 'text';
+
+        const PRESET_COLORS = [
+          {name:'أحمر',hex:'#E53935'},{name:'أزرق',hex:'#1E88E5'},{name:'أخضر',hex:'#43A047'},
+          {name:'أصفر',hex:'#FDD835'},{name:'برتقالي',hex:'#FB8C00'},{name:'بنفسجي',hex:'#8E24AA'},
+          {name:'وردي',hex:'#EC407A'},{name:'أبيض',hex:'#FFFFFF'},{name:'أسود',hex:'#212121'},
+          {name:'رمادي',hex:'#9E9E9E'},{name:'بني',hex:'#6D4C41'},{name:'كحلي',hex:'#37474F'},
+        ];
+
+        if (isColor) {
+          tr.innerHTML = `
+            <td><input type="text" class="form-control form-control-sm opt-key" value="${esc(key)}" placeholder="اسم الخيار (مثل: اللون)"></td>
+            <td>
+              <div class="tags-input-wrapper">
+                <div class="tags-list d-flex flex-wrap gap-1 mb-1"></div>
+                <div class="d-flex flex-wrap gap-1 align-items-center mb-1 color-palette-row">
+                  ${PRESET_COLORS.map(c => `<span class="color-dot-option" data-hex="${c.hex}" data-name="${c.name}" title="${c.name}" style="width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid #ddd;display:inline-flex;align-items:center;justify-content:center;background:${c.hex};${c.hex==='#FFFFFF'?'box-shadow:inset 0 0 0 1px #ccc;':''}"><i class="bi bi-plus" style="color:${c.hex==='#FFFFFF'||c.hex==='#FDD835'?'#333':'#fff'};font-size:0.7rem;"></i></span>`).join('')}
+                </div>
+                <div class="d-flex align-items-center gap-2 mt-1">
+                  <input type="color" class="custom-color-input" value="#000000" style="width:32px;height:28px;padding:1px;cursor:pointer;border:1px solid #ccc;border-radius:4px;">
+                  <input type="text" class="form-control form-control-sm custom-color-name" placeholder="اسم اللون (اختياري)" style="max-width:160px;font-size:0.8rem;">
+                  <button type="button" class="btn btn-sm btn-outline-primary custom-color-add-btn"><i class="bi bi-plus-lg me-1"></i>إضافة</button>
+                </div>
+                <input type="hidden" class="opt-val" value="">
               </div>
-              <input type="hidden" class="opt-val" value="${esc(val)}">
-            </div>
-          </td>
-          <td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-danger btn-remove-opt"><i class="bi bi-trash"></i></button></td>
-        `;
+            </td>
+            <td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-danger btn-remove-opt"><i class="bi bi-trash"></i></button></td>
+          `;
+        } else {
+          tr.innerHTML = `
+            <td><input type="text" class="form-control form-control-sm opt-key" value="${esc(key)}" placeholder="اسم الخيار (مثل: اللون)"></td>
+            <td>
+              <div class="tags-input-wrapper">
+                <div class="tags-list d-flex flex-wrap gap-1 mb-1"></div>
+                <div class="input-group input-group-sm">
+                  <input type="text" class="form-control opt-tag-input" placeholder="اكتب القيمة ثم اضغط Enter أو +">
+                  <button class="btn btn-outline-primary btn-add-tag" type="button" title="إضافة قيمة"><i class="bi bi-plus-lg"></i></button>
+                </div>
+                <input type="hidden" class="opt-val" value="${esc(val)}">
+              </div>
+            </td>
+            <td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-danger btn-remove-opt"><i class="bi bi-trash"></i></button></td>
+          `;
+        }
         
         const tagsList = tr.querySelector('.tags-list');
-        const tagInput = tr.querySelector('.opt-tag-input');
         const hiddenVal = tr.querySelector('.opt-val');
-        const addTagBtn = tr.querySelector('.btn-add-tag');
+        const keyInput = tr.querySelector('.opt-key');
         
         let tags = val.split(',').map(s => s.trim()).filter(Boolean);
+        let colors = colorData || [];
+        let colorCounter = colors.length;
+        
+        const getIsColor = () => tr.dataset.optionType === 'color';
         
         const renderTags = () => {
-          tagsList.innerHTML = tags.map((t, i) => 
-            `<span class="badge bg-primary d-inline-flex align-items-center" style="font-size: 0.85rem; padding: 0.35rem 0.5rem;">
-               ${esc(t)} 
-               <i class="bi bi-x ms-1 remove-tag" data-idx="${i}" style="cursor: pointer; font-size: 1.2em; line-height: 1;"></i>
-             </span>`
-          ).join('');
-          hiddenVal.value = tags.join(',');
+          if (getIsColor()) {
+            tagsList.innerHTML = colors.map((c, i) => 
+              `<span class="badge d-inline-flex align-items-center" style="background-color:${esc(c.hex || '#888')};color:#fff;font-size:0.85rem;padding:0.35rem 0.6rem;${c.hex==='#FFFFFF'?'color:#333;border:1px solid #ccc;':''}">
+                 <i class="bi bi-circle-fill me-1" style="color:${esc(c.hex || '#999')};font-size:0.7rem;${c.hex==='#FFFFFF'?`color:#ccc;`:''}"></i>
+                 ${esc(c.name)} 
+                 <i class="bi bi-x ms-1 remove-tag" data-idx="${i}" style="cursor:pointer;font-size:1.2em;line-height:1;"></i>
+               </span>`
+            ).join('');
+            hiddenVal.value = JSON.stringify(colors);
+            tr.querySelectorAll('.color-dot-option[data-hex]').forEach(dot => {
+              const added = colors.some(c => c.hex === dot.dataset.hex);
+              const icon = dot.querySelector('i');
+              if (icon) { icon.className = added ? 'bi bi-check-lg' : 'bi bi-plus'; }
+              dot.style.border = added ? '2px solid #28a745' : '2px solid #ddd';
+              dot.style.boxShadow = added ? '0 0 0 2px rgba(40,167,69,0.3)' : (dot.dataset.hex === '#FFFFFF' ? 'inset 0 0 0 1px #ccc' : '');
+            });
+          } else {
+            tagsList.innerHTML = tags.map((t, i) => 
+              `<span class="badge bg-primary d-inline-flex align-items-center" style="font-size:0.85rem;padding:0.35rem 0.5rem;">
+                 ${esc(t)} 
+                 <i class="bi bi-x ms-1 remove-tag" data-idx="${i}" style="cursor:pointer;font-size:1.2em;line-height:1;"></i>
+               </span>`
+            ).join('');
+            hiddenVal.value = tags.join(',');
+          }
           
           tagsList.querySelectorAll('.remove-tag').forEach(btn => {
             btn.addEventListener('click', (e) => {
-              const idx = e.target.getAttribute('data-idx');
-              tags.splice(idx, 1);
+              const idx = parseInt(e.target.getAttribute('data-idx'));
+              if (getIsColor()) colors.splice(idx, 1); else tags.splice(idx, 1);
               renderTags();
             });
           });
         };
         
         renderTags();
+
+        if (getIsColor()) {
+          const addColorPreset = (hex, name) => {
+            if (!colors.some(c => c.hex === hex)) {
+              colors.push({ name: name, hex: hex });
+              renderTags();
+            }
+          };
+          tr.querySelectorAll('.color-palette-row .color-dot-option[data-hex]').forEach(dot => {
+            dot.addEventListener('click', () => addColorPreset(dot.dataset.hex, dot.dataset.name));
+          });
+          const customInput = tr.querySelector('.custom-color-input');
+          const customName = tr.querySelector('.custom-color-name');
+          const addBtn = tr.querySelector('.custom-color-add-btn');
+          if (customInput && addBtn) {
+            addBtn.addEventListener('click', () => {
+              const name = customName.value.trim() || ('لون ' + (++colorCounter));
+              if (!colors.some(c => c.hex === customInput.value)) {
+                colors.push({ name: name, hex: customInput.value });
+                customName.value = '';
+                renderTags();
+              }
+            });
+          }
+        } else {
+          const tagInput = tr.querySelector('.opt-tag-input');
+          const addTagBtn = tr.querySelector('.btn-add-tag');
+          const addTagLogic = () => {
+            const newTag = tagInput.value.trim();
+            if (newTag && !tags.includes(newTag)) {
+              tags.push(newTag);
+              tagInput.value = '';
+              renderTags();
+            }
+          };
+          tagInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); addTagLogic(); }
+          });
+          addTagBtn.addEventListener('click', () => { addTagLogic(); tagInput.focus(); });
+        }
         
-        const addTagLogic = () => {
-          const newTag = tagInput.value.trim();
-          if (newTag && !tags.includes(newTag)) {
-            tags.push(newTag);
-            tagInput.value = '';
+        keyInput.addEventListener('input', () => {
+          const shouldBeColor = keyInput.value.trim() === 'اللون';
+          if (shouldBeColor && tr.dataset.optionType !== 'color') {
+            tr.dataset.optionType = 'color';
+            colors = tags.map(t => ({ name: t, hex: '#888888' }));
+            tags = [];
+            const td = keyInput.closest('tr').children[1];
+            const tagsListEl = td.querySelector('.tags-list');
+            const inputGroup = td.querySelector('.input-group');
+            if (inputGroup) {
+              const palette = document.createElement('div');
+              palette.className = 'd-flex flex-wrap gap-1 align-items-center mb-1 color-palette-row';
+              palette.innerHTML = PRESET_COLORS.map(c => `<span class="color-dot-option" data-hex="${c.hex}" data-name="${c.name}" title="${c.name}" style="width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid #ddd;display:inline-flex;align-items:center;justify-content:center;background:${c.hex};${c.hex==='#FFFFFF'?'box-shadow:inset 0 0 0 1px #ccc;':''}"><i class="bi bi-plus" style="color:${c.hex==='#FFFFFF'||c.hex==='#FDD835'?'#333':'#fff'};font-size:0.7rem;"></i></span>`).join('');
+              const customRow = document.createElement('div');
+              customRow.className = 'd-flex align-items-center gap-2 mt-1';
+              customRow.innerHTML = `<input type="color" class="custom-color-input" value="#000000" style="width:32px;height:28px;padding:1px;cursor:pointer;border:1px solid #ccc;border-radius:4px;"><input type="text" class="form-control form-control-sm custom-color-name" placeholder="اسم اللون (اختياري)" style="max-width:160px;font-size:0.8rem;"><button type="button" class="btn btn-sm btn-outline-primary custom-color-add-btn"><i class="bi bi-plus-lg me-1"></i>إضافة</button>`;
+              const inputGroup = td.querySelector('.input-group');
+              if (inputGroup) {
+                const wrapper = document.createElement('div');
+                wrapper.appendChild(palette);
+                wrapper.appendChild(customRow);
+                inputGroup.replaceWith(wrapper);
+                palette.querySelectorAll('.color-dot-option[data-hex]').forEach(dot => {
+                  dot.addEventListener('click', () => {
+                    if (!colors.some(c => c.hex === dot.dataset.hex)) {
+                      colors.push({ name: dot.dataset.name, hex: dot.dataset.hex });
+                      renderTags();
+                    }
+                  });
+                });
+                const ci = customRow.querySelector('.custom-color-input');
+                const cn = customRow.querySelector('.custom-color-name');
+                const cb = customRow.querySelector('.custom-color-add-btn');
+                if (ci && cb) {
+                  cb.addEventListener('click', () => {
+                    const name = cn.value.trim() || ('لون ' + (++colorCounter));
+                    if (!colors.some(c => c.hex === ci.value)) {
+                      colors.push({ name: name, hex: ci.value });
+                      cn.value = '';
+                      renderTags();
+                    }
+                  });
+                }
+              }
+            }
+            renderTags();
+          } else if (!shouldBeColor && tr.dataset.optionType === 'color') {
+            tr.dataset.optionType = 'text';
+            tags = colors.map(c => c.name);
+            colors = [];
+            const td = keyInput.closest('tr').children[1];
+            const palette = td.querySelector('.color-palette-row');
+            if (palette) {
+              const ig = document.createElement('div');
+              ig.className = 'input-group input-group-sm';
+              ig.innerHTML = `<input type="text" class="form-control opt-tag-input" placeholder="اكتب القيمة ثم اضغط Enter أو +"><button class="btn btn-outline-primary btn-add-tag" type="button" title="إضافة قيمة"><i class="bi bi-plus-lg"></i></button>`;
+              const wrapper = palette.parentElement;
+              if (wrapper) wrapper.replaceWith(ig); else palette.replaceWith(ig);
+              const ti = ig.querySelector('.opt-tag-input');
+              const ab = ig.querySelector('.btn-add-tag');
+              const at = () => { const n=ti.value.trim(); if(n&&!tags.includes(n)){tags.push(n);ti.value='';renderTags();} };
+              ti.addEventListener('keydown', e => { if(e.key==='Enter'){e.preventDefault();at();} });
+              ab.addEventListener('click', () => { at(); ti.focus(); });
+            }
             renderTags();
           }
-        };
-
-        tagInput.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            addTagLogic();
-          }
-        });
-
-        addTagBtn.addEventListener('click', () => {
-          addTagLogic();
-          tagInput.focus();
         });
         
         tr.querySelector('.btn-remove-opt').addEventListener('click', () => tr.remove());
@@ -2288,7 +2431,13 @@ function openProductModal(product = null, opts = {}) {
         });
         const tbodyOpts = modalEl.querySelector('#options-tbody');
         tbodyOpts.innerHTML = '';
-        Object.entries(product.options || {}).forEach(([k, v]) => addOptionRow(k, v.join(', ')));
+        Object.entries(product.options || {}).forEach(([k, v]) => {
+          if (Array.isArray(v) && v.length > 0 && v[0] && typeof v[0] === 'object') {
+            addOptionRow(k, '', v);
+          } else {
+            addOptionRow(k, Array.isArray(v) ? v.join(', ') : String(v));
+          }
+        });
         
         // Migration logic for editing old products with colors/sizes but no options map
         if (!product.options) {
@@ -2830,6 +2979,69 @@ function renderOrdersTable() {
   }
 }
 
+function printInvoice(order) {
+  const items = order.items || [];
+  const addr = order.shippingAddress || {};
+  const user = CACHE.customers.find(u => u.uid === order.userId);
+  const subtotal = Number(order.subtotal ?? items.reduce((sum, it) => sum + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0));
+  const shipping = Number(order.shipping || 0);
+  const total = Number(order.total ?? (subtotal + shipping));
+  const printHTML = `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>فاتورة ${esc(order.id.substring(0,8))}</title><style>
+    *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Cairo',Tahoma,sans-serif;color:#222;padding:24px;font-size:13px;line-height:1.6}
+    .inv-header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1a1a1a;padding-bottom:16px;margin-bottom:20px}
+    .inv-header h1{font-size:22px;font-weight:800;margin-bottom:2px}.inv-header .inv-date{color:#666;font-size:12px}
+    .inv-header .inv-badge{text-align:left}.inv-header .inv-badge .status{display:inline-block;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700}
+    .inv-parties{display:flex;gap:24px;margin-bottom:20px}.inv-parties>div{flex:1;border:1px solid #ddd;border-radius:8px;padding:14px}
+    .inv-parties h6{font-size:12px;color:#666;margin-bottom:8px;border-bottom:1px solid #eee;padding-bottom:6px}.inv-parties .line{display:flex;justify-content:space-between;padding:3px 0;font-size:12px}.inv-parties .line span{color:#888}.inv-parties .line strong{font-weight:600}
+    table{width:100%;border-collapse:collapse;margin-bottom:16px}th{background:#f5f5f5;padding:10px 8px;text-align:right;font-size:11px;font-weight:700;color:#555;border-bottom:2px solid #ddd}td{padding:10px 8px;border-bottom:1px solid #eee;font-size:12px}
+    .product-cell{display:flex;align-items:center;gap:8px}.product-cell img{width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #eee}
+    .totals{width:280px;margin-left:auto}.totals .row{display:flex;justify-content:space-between;padding:6px 0;font-size:12px}.totals .row.grand{border-top:2px solid #1a1a1a;padding-top:8px;font-size:15px;font-weight:800;margin-top:4px}
+    .footer-note{margin-top:24px;padding-top:12px;border-top:1px dashed #ccc;text-align:center;color:#999;font-size:10px}
+    .opt-badge{display:inline-block;background:#f0f0f0;border:1px solid #ddd;border-radius:4px;padding:1px 6px;font-size:10px;margin-top:3px}
+    @media print{body{padding:0}button{display:none!important}}
+  </style></head><body>
+    <div class="inv-header">
+      <div><h1>فاتورة طلب</h1><div style="font-size:16px;font-weight:700;margin:4px 0">#${esc(order.id.substring(0,8))}</div><div class="inv-date">${formatDate(order.createdAt, true)}</div></div>
+      <div class="inv-badge"><span class="status">${esc(order.status || '—')}</span><br><span style="font-size:11px;color:#666;margin-top:4px;display:inline-block">${esc(getPaymentMethodBadge(order.paymentMethod))}</span></div>
+    </div>
+    <div class="inv-parties">
+      <div><h6>العميل</h6>
+        <div class="line"><span>الاسم</span><strong>${esc(addr.name || user?.displayName || '—')}</strong></div>
+        <div class="line"><span>الهاتف</span><strong dir="ltr">${esc(normalizePhone(addr.phone || user?.phone || user?.phoneNumber) || '—')}</strong></div>
+        <div class="line"><span>البريد</span><strong dir="ltr">${esc(user?.email || '—')}</strong></div>
+      </div>
+      <div><h6>التوصيل</h6>
+        <div class="line"><span>المدينة</span><strong>${esc(addr.city || '—')}</strong></div>
+        <div class="line"><span>العنوان</span><strong>${esc(addr.address || '—')}</strong></div>
+        <div class="line"><span>العلامة</span><strong>${esc(addr.label || '—')}</strong></div>
+        ${order.deliveryType ? `<div class="line"><span>نوع التوصيل</span><strong>${order.deliveryType === 'fast' ? '⚡ سريع' : 'عادي'}</strong></div>` : ''}
+        ${order.deliveryDate ? `<div class="line"><span>التاريخ</span><strong>${formatDate(order.deliveryDate)}</strong></div>` : ''}
+        ${order.deliveryTime ? `<div class="line"><span>الوقت</span><strong dir="ltr">${esc(order.deliveryTime)}</strong></div>` : ''}
+      </div>
+    </div>
+    <table><thead><tr><th>المنتج</th><th>السعر</th><th>الكمية</th><th>الإجمالي</th></tr></thead><tbody>
+    ${items.map(it => {
+      const qty = Number(it.quantity) || 1;
+      const price = Number(it.price) || 0;
+      const opts = it.selectedOptions;
+      const optHtml = (opts && typeof opts === 'object' && Object.keys(opts).length > 0)
+        ? Object.entries(opts).map(([k,v]) => `<span class="opt-badge">${esc(k)}: ${esc(String(v))}</span>`).join(' ')
+        : (it.selectedColor ? `<span class="opt-badge">اللون: ${esc(it.selectedColor)}</span> ` : '') + (it.selectedSize ? `<span class="opt-badge">المقاس: ${esc(it.selectedSize)}</span>` : '');
+      return `<tr><td><div class="product-cell">${it.image ? `<img src="${esc(it.image)}" />` : ''}<div><div style="font-weight:600">${esc(it.nameAr || it.nameEn || '—')}</div>${optHtml ? `<div>${optHtml}</div>` : ''}</div></div></td><td>${formatCurrency(price)}</td><td>${formatNumber(qty)}</td><td style="font-weight:700">${formatCurrency(price * qty)}</td></tr>`;
+    }).join('')}
+    </tbody></table>
+    <div class="totals">
+      <div class="row"><span>المجموع الفرعي</span><strong>${formatCurrency(subtotal)}</strong></div>
+      <div class="row"><span>الشحن</span><strong>${formatCurrency(shipping)}</strong></div>
+      <div class="row grand"><span>الإجمالي</span><strong>${formatCurrency(total)}</strong></div>
+    </div>
+    <div class="footer-note">شكراً لتسوقكم من Electronic — ${formatDate(new Date())}</div>
+  </body></html>`;
+  const w = window.open('', '_blank', 'width=800,height=900');
+  if (w) { w.document.write(printHTML); w.document.close(); w.focus(); setTimeout(() => w.print(), 500); }
+  else { showToast('امنع البوب أب أدا blocker وأعد المحاولة', 'error'); }
+}
+
 function showOrderDetails(order) {
   const items = order.items || [];
   const addr = order.shippingAddress || {};
@@ -2922,7 +3134,19 @@ function showOrderDetails(order) {
       </div>
     </div>
   `;
-  openModal({ id: 'order-details', title: 'تفاصيل الطلب', bodyHTML, cancelText: 'إغلاق', large: true });
+  openModal({ id: 'order-details', title: 'تفاصيل الطلب', bodyHTML, cancelText: 'إغلاق', large: true,
+    onShown: (modalEl) => {
+      const footer = modalEl.querySelector('.modal-footer');
+      if (footer) {
+        const printBtn = document.createElement('button');
+        printBtn.type = 'button';
+        printBtn.className = 'btn btn-outline-primary';
+        printBtn.innerHTML = '<i class="bi bi-printer me-1"></i> طباعة الفاتورة';
+        printBtn.addEventListener('click', () => printInvoice(order));
+        footer.insertBefore(printBtn, footer.firstChild);
+      }
+    }
+  });
 }
 
 /* =========================================================

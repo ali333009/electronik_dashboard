@@ -1177,3 +1177,8 @@ table.table th { color: var(--text-primary); }
 .banner-prod-item:hover { background: var(--color-accent-soft); }
 .banner-prod-item.added { background: var(--color-success-soft); }
 .banner-prod-item .badge { font-size: 0.75rem; }
+
+/* Color palette dots */
+.color-dot-option { transition: transform 0.15s, box-shadow 0.15s; }
+.color-dot-option:hover { transform: scale(1.2); box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
+.color-dot-option:active { transform: scale(0.95); }
