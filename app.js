@@ -986,11 +986,17 @@ function openSidebar() {
   $('#sidebar').classList.add('show');
   $('#sidebar-overlay').classList.add('show');
   document.body.classList.add('sidebar-open');
+  document.body.style.position = 'fixed';
+  document.body.style.top = `-${window.scrollY}px`;
 }
 function closeSidebar() {
+  const scrollY = document.body.style.top ? Math.abs(parseInt(document.body.style.top, 10)) : 0;
+  document.body.classList.remove('sidebar-open');
+  document.body.style.position = '';
+  document.body.style.top = '';
   $('#sidebar').classList.remove('show');
   $('#sidebar-overlay').classList.remove('show');
-  document.body.classList.remove('sidebar-open');
+  window.scrollTo(0, scrollY);
 }
 
 /* =========================================================
