@@ -173,9 +173,36 @@ async function listUsers() {
 async function listReviews() {
   try {
     const snap = await db.collectionGroup('reviews').get();
-    return snap.docs.map(d => ({ id: d.id, _path: d.ref.path, ...d.data() }));
+    return snap.docs.map(d => {
+      const data = d.data();
+      return { 
+        id: d.id, 
+        _path: d.ref.path, 
+        productId: data.productId || (d.ref.parent.parent ? d.ref.parent.parent.id : null),
+        ...data 
+      };
+    });
   } catch (e) {
-    throw wrapError(e);
+    console.warn("collectionGroup reviews failed (likely missing index), falling back to per-product fetch.", e);
+    const allReviews = [];
+    try {
+      const prodSnap = await db.collection('products').get();
+      for (const p of prodSnap.docs) {
+        const rs = await db.collection('products').doc(p.id).collection('reviews').get();
+        rs.forEach(d => {
+          const data = d.data();
+          allReviews.push({ 
+            id: d.id, 
+            _path: d.ref.path, 
+            productId: data.productId || p.id,
+            ...data 
+          });
+        });
+      }
+    } catch(err) {
+       console.error("Fallback reviews fetch also failed", err);
+    }
+    return allReviews;
   }
 }
 
@@ -339,8 +366,10 @@ async function loadSettings() {
     fastShippingFee: shipping.fastShippingCost ?? store.fastShippingFee ?? 40,
     freeShippingThreshold: shipping.freeShippingThreshold ?? store.freeShippingThreshold ?? 500,
     availableDaysCount: shipping.availableDaysCount ?? store.availableDaysCount ?? 3,
-    normalDescription: shipping.normalDescription ?? store.normalDescription ?? 'توصيل خلال 3-5 أيام',
-    expressDescription: shipping.expressDescription ?? store.expressDescription ?? 'توصيل خلال 24 ساعة',
+    normalDescriptionAr: shipping.normalDescriptionAr ?? shipping.normalDescription ?? store.normalDescriptionAr ?? store.normalDescription ?? 'توصيل خلال 3-5 أيام',
+    normalDescriptionEn: shipping.normalDescriptionEn ?? store.normalDescriptionEn ?? 'Delivery within 3-5 days',
+    expressDescriptionAr: shipping.expressDescriptionAr ?? shipping.expressDescription ?? store.expressDescriptionAr ?? store.expressDescription ?? 'توصيل خلال 24 ساعة',
+    expressDescriptionEn: shipping.expressDescriptionEn ?? store.expressDescriptionEn ?? 'Delivery within 24 hours',
     expressTimeSlots: shipping.expressTimeSlots ?? store.expressTimeSlots ?? [],
   };
   return CACHE.settings;
@@ -705,25 +734,87 @@ function closeModal(id) {
   }
 }
 
-/** تصدير البيانات إلى CSV */
-function exportToCSV(items, columns, filename = 'export.csv') {
+/** تصدير البيانات إلى Excel (.xlsx) بتنسيق أنيق */
+function exportToExcel(items, columns, filename = 'export') {
   if (!items || items.length === 0) { showToast('لا توجد بيانات للتصدير', 'error'); return; }
-  const header = columns.map(c => `"${c.label}"`).join(',');
-  const rows = items.map(item => {
+  if (typeof XLSX === 'undefined') { showToast('مكتبة التصدير لم تُحمّل، تحقق من الإنترنت', 'error'); return; }
+
+  const headerLabels = columns.map(c => c.label);
+  const dataRows = items.map(item => {
     return columns.map(c => {
-      let val = typeof c.value === 'function' ? c.value(item) : (item[c.value] ?? '');
-      val = String(val).replace(/"/g, '""');
-      return `"${val}"`;
-    }).join(',');
-  }).join('\n');
-  const bom = '\uFEFF';
-  const blob = new Blob([bom + header + '\n' + rows], { type: 'text/csv;charset=utf-8;' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename.replace(/\.csv$/, '') + '.csv';
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(a.href);
+      const val = typeof c.value === 'function' ? c.value(item) : (item[c.value] ?? '');
+      return val;
+    });
+  });
+
+  const wsData = [headerLabels, ...dataRows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  /* --- عرض الأعمدة تلقائيًا --- */
+  const colWidths = columns.map((c, i) => {
+    let maxLen = c.label.length;
+    dataRows.forEach(row => {
+      const cell = row[i];
+      const str = cell !== null && cell !== undefined ? String(cell) : '';
+      if (str.length > maxLen) maxLen = str.length;
+    });
+    return { wch: Math.min(Math.max(maxLen + 2, 10), 40) };
+  });
+  ws['!cols'] = colWidths;
+
+  /* --- تنسيق الرأس (الصف الأول) --- */
+  const headerStyle = {
+    fill: { fgColor: { rgb: '7C3AED' } },
+    font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 12 },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: [
+      { top: { style: 'thin', color: { rgb: '5B21B6' } } },
+      { bottom: { style: 'thin', color: { rgb: '5B21B6' } } },
+      { left: { style: 'thin', color: { rgb: '5B21B6' } } },
+      { right: { style: 'thin', color: { rgb: '5B21B6' } } },
+    ],
+  };
+  const totalCols = columns.length;
+  for (let c = 0; c < totalCols; c++) {
+    const addr = XLSX.utils.encode_cell({ r: 0, c });
+    if (ws[addr]) ws[addr].s = headerStyle;
+  }
+
+  /* --- تنسيق صفوف البيانات --- */
+  const evenRowStyle = {
+    fill: { fgColor: { rgb: 'F5F3EF' } },
+    font: { sz: 11 },
+    border: [
+      { top: { style: 'hair', color: { rgb: 'E5DFD7' } } },
+      { bottom: { style: 'hair', color: { rgb: 'E5DFD7' } } },
+      { left: { style: 'hair', color: { rgb: 'E5DFD7' } } },
+      { right: { style: 'hair', color: { rgb: 'E5DFD7' } } },
+    ],
+  };
+  const oddRowStyle = {
+    fill: { fgColor: { rgb: 'FFFFFF' } },
+    font: { sz: 11 },
+    border: [
+      { top: { style: 'hair', color: { rgb: 'E5DFD7' } } },
+      { bottom: { style: 'hair', color: { rgb: 'E5DFD7' } } },
+      { left: { style: 'hair', color: { rgb: 'E5DFD7' } } },
+      { right: { style: 'hair', color: { rgb: 'E5DFD7' } } },
+    ],
+  };
+  for (let r = 1; r < wsData.length; r++) {
+    for (let c = 0; c < totalCols; c++) {
+      const addr = XLSX.utils.encode_cell({ r, c });
+      if (ws[addr]) ws[addr].s = (r % 2 === 0) ? evenRowStyle : oddRowStyle;
+    }
+  }
+
+  /* --- إنشاء Workbook وحفظه --- */
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Data');
+
+  const today = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `${filename}_${today}.xlsx`);
+
   showToast(`تم تصدير ${items.length} سجل بنجاح`, 'success');
 }
 
@@ -1528,7 +1619,7 @@ function renderProducts(container) {
       { label: 'جديد', value: item => item.isNew ? 'نعم' : 'لا' },
       { label: 'حصري', value: item => item.isExclusive ? 'نعم' : 'لا' },
     ];
-    exportToCSV(CACHE.products, cols, 'المنتجات');
+    exportToExcel(CACHE.products, cols, 'المنتجات');
   });
   // Bulk actions
   $('#bulk-delete').addEventListener('click', async () => {
@@ -2843,7 +2934,7 @@ function renderOrders(container) {
       { label: 'الحالة', value: o => statusMap[o.status] || o.status },
       { label: 'تاريخ', value: o => formatDate(o.createdAt) },
     ];
-    exportToCSV(CACHE.orders, cols, 'الطلبات');
+    exportToExcel(CACHE.orders, cols, 'الطلبات');
   });
   renderOrdersTable();
 }
@@ -3205,7 +3296,7 @@ function renderCustomers(container) {
       { label: 'إجمالي الإنفاق', value: 'totalSpent' },
       { label: 'تاريخ التسجيل', value: c => formatDate(c.createdAt) },
     ];
-    exportToCSV(CACHE.customers, cols, 'العملاء');
+    exportToExcel(CACHE.customers, cols, 'العملاء');
   });
   renderCustomersTable();
 }
@@ -4077,10 +4168,11 @@ function renderNotifList() {
       </div>
       <div class="flex-grow-1">
         <div class="d-flex justify-content-between">
-          <strong>${esc(n.title)}</strong>
+          <strong>${esc(n.titleAr || n.title || '')}</strong>
           <small class="text-muted">${formatDate(n.createdAt, true)}</small>
         </div>
-        <p class="mb-1 text-muted">${esc(n.body || '')}</p>
+        ${n.titleEn ? `<div class="text-muted" style="font-size:0.85em;">${esc(n.titleEn)}</div>` : ''}
+        <p class="mb-1 text-muted">${esc(n.bodyAr || n.body || '')}</p>
         <small class="text-muted">
           <i class="bi bi-check-circle text-success"></i>
           ${n.status === 'sent' ? 'تم الإرسال' : 'قيد الإرسال'}
@@ -4096,7 +4188,7 @@ function renderNotifList() {
       const id = btn.dataset.id;
       const n = CACHE.notifications.find(x => x.id === id);
       if (!n) return;
-      const ok = await confirmAction(`سيتم حذف الإشعار "${n.title}" نهائياً. هل أنت متأكد؟`, 'حذف الإشعار', 'حذف', 'danger');
+      const ok = await confirmAction(`سيتم حذف الإشعار "${n.titleAr || n.title}" نهائياً. هل أنت متأكد؟`, 'حذف الإشعار', 'حذف', 'danger');
       if (ok) {
         try {
           await remove('notifications', id);
@@ -4134,12 +4226,20 @@ function openSendNotifModal(prefill = null, prefillType = '', prefillLinkId = ''
         </select>
       </div>
       <div class="mb-3">
-        <label class="form-label">عنوان الإشعار <span class="text-danger">*</span></label>
-        <input type="text" class="form-control" name="title" required placeholder="مثال: عرض خاص لمدة 24 ساعة!" value="${esc(prefillTitle)}" />
+        <label class="form-label">عنوان الإشعار (عربي) <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" name="titleAr" required placeholder="مثال: عرض خاص لمدة 24 ساعة!" value="${esc(prefill.titleAr || prefillTitle)}" dir="rtl" />
       </div>
       <div class="mb-3">
-        <label class="form-label">نص الإشعار <span class="text-danger">*</span></label>
-        <textarea class="form-control" name="body" rows="4" required placeholder="اكتب نص الإشعار هنا...">${esc(prefillBody)}</textarea>
+        <label class="form-label">Notification Title (English) <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" name="titleEn" required placeholder="e.g. Special offer for 24 hours!" value="${esc(prefill.titleEn || '')}" dir="ltr" />
+      </div>
+      <div class="mb-3">
+        <label class="form-label">نص الإشعار (عربي) <span class="text-danger">*</span></label>
+        <textarea class="form-control" name="bodyAr" rows="3" required placeholder="اكتب نص الإشعار هنا..." dir="rtl">${esc(prefill.bodyAr || prefillBody)}</textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Notification Body (English) <span class="text-danger">*</span></label>
+        <textarea class="form-control" name="bodyEn" rows="3" required placeholder="Write notification body here..." dir="ltr">${esc(prefill.bodyEn || '')}</textarea>
       </div>
       <div class="mb-3">
         <label class="form-label">نوع الإشعار</label>
@@ -4181,8 +4281,12 @@ function openSendNotifModal(prefill = null, prefillType = '', prefillLinkId = ''
         showToast('جاري حفظ الإشعار...', 'info', 2000);
         
         const payload = {
-          title: data.title,
-          body: data.body,
+          titleAr: data.titleAr,
+          titleEn: data.titleEn,
+          bodyAr: data.bodyAr,
+          bodyEn: data.bodyEn,
+          title: data.titleAr || data.titleEn,
+          body: data.bodyAr || data.bodyEn,
           audience: data.audience,
           targetUserId: data.audience === 'specific' ? data.targetUserId : '',
           status: 'pending',
@@ -4448,14 +4552,26 @@ function renderSettings(container) {
                 </div>
                 <div class="col-md-4">
                   <div class="mb-3">
-                    <label class="form-label">وصف التوصيل العادي</label>
-                    <input type="text" class="form-control" name="normalDescription" value="${esc(s.normalDescription ?? 'توصيل خلال 3-5 أيام')}" />
+                    <label class="form-label">وصف التوصيل العادي (عربي)</label>
+                    <input type="text" class="form-control" name="normalDescriptionAr" value="${esc(s.normalDescriptionAr ?? s.normalDescription ?? 'توصيل خلال 3-5 أيام')}" dir="rtl" />
                   </div>
                 </div>
                 <div class="col-md-4">
                   <div class="mb-3">
-                    <label class="form-label">وصف التوصيل السريع</label>
-                    <input type="text" class="form-control" name="expressDescription" value="${esc(s.expressDescription ?? 'توصيل خلال 24 ساعة')}" />
+                    <label class="form-label">Normal Description (English)</label>
+                    <input type="text" class="form-control" name="normalDescriptionEn" value="${esc(s.normalDescriptionEn ?? '')}" dir="ltr" />
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="mb-3">
+                    <label class="form-label">وصف التوصيل السريع (عربي)</label>
+                    <input type="text" class="form-control" name="expressDescriptionAr" value="${esc(s.expressDescriptionAr ?? s.expressDescription ?? 'توصيل خلال 24 ساعة')}" dir="rtl" />
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="mb-3">
+                    <label class="form-label">Express Description (English)</label>
+                    <input type="text" class="form-control" name="expressDescriptionEn" value="${esc(s.expressDescriptionEn ?? '')}" dir="ltr" />
                   </div>
                 </div>
                 <div class="col-md-6">
@@ -4553,8 +4669,10 @@ function renderSettings(container) {
         fastShippingCost: Number(data.fastShippingFee) || 0,
         freeShippingThreshold: Number(data.freeShippingThreshold) || 0,
         availableDaysCount: data.availableDaysCount,
-        normalDescription: data.normalDescription || 'توصيل خلال 3-5 أيام',
-        expressDescription: data.expressDescription || 'توصيل خلال 24 ساعة',
+        normalDescriptionAr: data.normalDescriptionAr || 'توصيل خلال 3-5 أيام',
+        normalDescriptionEn: data.normalDescriptionEn || 'Delivery within 3-5 days',
+        expressDescriptionAr: data.expressDescriptionAr || 'توصيل خلال 24 ساعة',
+        expressDescriptionEn: data.expressDescriptionEn || 'Delivery within 24 hours',
         expressTimeSlots: data.expressTimeSlots,
         updatedAt: serverTS(),
       }, { merge: true });
